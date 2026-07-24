@@ -24,20 +24,78 @@ function getProductAttribute(name: string): string {
   return getProductRoot()?.getAttribute(name) || "";
 }
 
-function readProductFromElement(element: Element | null) {
+function getProductImageFromElement(element: Element | null): string {
+  if (!element) {
+    return "";
+  }
+
+  const image = element.getAttribute("data-evg-product-image");
+  if (image) {
+    return image;
+  }
+
+  const img = element.querySelector("img");
+  if (!img) {
+    return "";
+  }
+
+  return img.getAttribute("src") || img.currentSrc || img.src || "";
+}
+
+function buildProductCatalogFromElement(
+  element: Element | null,
+  fallbackCategory?: string
+) {
   if (!element) {
     return null;
   }
 
   const id = element.getAttribute("data-evg-product-id");
   const name = element.getAttribute("data-evg-product-name");
-  const price = Number(element.getAttribute("data-evg-product-price") || 0);
 
   if (!id || !name) {
     return null;
   }
 
-  return { id, name, price };
+  const slug = element.getAttribute("data-evg-product-slug") || "";
+  const price = Number(element.getAttribute("data-evg-product-price") || 0);
+  const brand = element.getAttribute("data-evg-product-brand") || "";
+  const category =
+    element.getAttribute("data-evg-product-category") ||
+    fallbackCategory ||
+    "";
+  const image = getProductImageFromElement(element);
+
+  const product: Record<string, unknown> = {
+    _id: id,
+    name,
+    price,
+  };
+
+  if (slug) {
+    product.url = `${window.location.origin}/products/${slug}`;
+  }
+
+  if (image) {
+    product.imageUrl = image;
+  }
+
+  if (category) {
+    product.categories = [category];
+  }
+
+  const related: Record<string, string[]> = {};
+  if (brand) {
+    related.Brand = [brand];
+  }
+  if (category) {
+    related.Category = [category];
+  }
+  if (Object.keys(related).length > 0) {
+    product.relatedCatalogObjects = related;
+  }
+
+  return product;
 }
 
 export function createEvergageSitemapConfig(
@@ -54,21 +112,21 @@ export function createEvergageSitemapConfig(
               this.closest("[data-evg-product]") ||
               this.closest("[data-evg-product-card]");
 
-            const product = readProductFromElement(productElement);
+            const product = buildProductCatalogFromElement(
+              productElement,
+              getCategoryFromPage()
+            );
             if (!product) {
               return;
             }
+
+            product.quantity = 1;
 
             Evergage.sendEvent({
               action: "Add To Cart",
               itemAction: Evergage.ItemAction.AddToCart,
               catalog: {
-                Product: {
-                  _id: product.id,
-                  name: product.name,
-                  price: product.price,
-                  quantity: 1,
-                },
+                Product: product,
               },
             });
           }
@@ -92,7 +150,7 @@ export function createEvergageSitemapConfig(
             price: () =>
               Number(getProductAttribute("data-evg-product-price")) || 0,
             url: () => window.location.href,
-            imageUrl: () => getProductAttribute("data-evg-product-image"),
+            imageUrl: () => getProductImageFromElement(getProductRoot()),
             relatedCatalogObjects: {
               Brand: () => {
                 const brand = getProductAttribute("data-evg-product-brand");
@@ -140,15 +198,13 @@ export function createEvergageSitemapConfig(
   };
 }
 
+/**
+ * Reference mirror of evergage-sitemap-mcp.js (TypeScript types only).
+ * MCP deployment: copy evergage-sitemap-mcp.js -> Settings -> Site Map -> Sitemap JS
+ * Do NOT init sitemap from the app — it overwrites MCP config.
+ */
 export function initEvergageSitemap(): boolean {
-  const Evergage = window.Evergage;
-  if (!Evergage?.initSitemap) {
-    return false;
-  }
-
-  const config = createEvergageSitemapConfig(Evergage);
-  Evergage.initSitemap(config);
-  return true;
+  return Boolean(window.Evergage?.initSitemap);
 }
 
 export function reinitEvergageSitemap(): void {

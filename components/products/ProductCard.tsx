@@ -30,6 +30,9 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
       data-evg-product-name={product.name}
       data-evg-product-price={product.price}
       data-evg-product-brand={product.brand}
+      data-evg-product-category={product.categorySlug || product.category}
+      data-evg-product-image={product.thumbnail}
+      data-evg-product-stock={product.stock}
     >
       <Link href={`/products/${product.slug}`} className="block">
         <div className="card overflow-hidden">

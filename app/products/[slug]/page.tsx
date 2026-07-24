@@ -110,6 +110,7 @@ export default function ProductDetailPage({ params }: ProductDetailProps) {
       data-evg-product-brand={product.brand}
       data-evg-product-category={product.category}
       data-evg-product-image={product.thumbnail}
+      data-evg-product-stock={product.stock}
     >
       <Breadcrumb
         items={[

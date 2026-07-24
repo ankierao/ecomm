@@ -1,47 +1,21 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { initEvergageSitemap, reinitEvergageSitemap } from "@/lib/evergage/sitemap";
+import { reinitEvergageSitemap } from "@/lib/evergage/sitemap";
 
-const INIT_RETRY_MS = 250;
-const REINIT_DELAY_MS = 500;
+const REINIT_DELAY_MS = 800;
 
+/**
+ * Re-triggers the MCP-hosted sitemap after Next.js client navigation.
+ * Do NOT call initSitemap here — that would overwrite the sitemap deployed in MCP.
+ */
 export default function EvergageTracker() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const initialized = useRef(false);
   const search = searchParams.toString();
 
   useEffect(() => {
-    if (initialized.current) {
-      return;
-    }
-
-    const tryInit = () => {
-      if (!initialized.current && initEvergageSitemap()) {
-        initialized.current = true;
-        reinitEvergageSitemap();
-      }
-    };
-
-    tryInit();
-
-    const intervalId = window.setInterval(() => {
-      tryInit();
-      if (initialized.current) {
-        window.clearInterval(intervalId);
-      }
-    }, INIT_RETRY_MS);
-
-    return () => window.clearInterval(intervalId);
-  }, []);
-
-  useEffect(() => {
-    if (!initialized.current) {
-      return;
-    }
-
     const timeoutId = window.setTimeout(() => {
       reinitEvergageSitemap();
     }, REINIT_DELAY_MS);

@@ -1,8 +1,31 @@
 /**
- * Salesforce Personalization -> Site Map -> Sitemap JS
+ * ============================================================================
+ * SALESFORCE PERSONALIZATION — MCP SITEMAP (COPY THIS ENTIRE FILE)
+ * ============================================================================
  * Dataset: H_DEV_TEST
  *
- * Requires data-evg-* attributes already present in the ShopSphere Next.js site.
+ * HOW TO DEPLOY:
+ * 1. Select ALL content in this file (Ctrl+A)
+ * 2. Copy (Ctrl+C)
+ * 3. In MCP: Settings -> Site Map -> Sitemap JS
+ * 4. Paste and Save/Publish
+ *
+ * Do NOT call Evergage.initSitemap() from the Next.js app — it overwrites MCP.
+ *
+ * MCP CATALOG — built-in Product fields (no setup needed on Attributes screen):
+ *   name, url, price, imageUrl, inventoryCount are built into Product automatically.
+ *   Settings -> Catalog and Profile Objects -> Product -> Attributes is for CUSTOM fields only.
+ *   Do NOT add imageUrl there; sitemap sends it on catalog.Product.imageUrl directly.
+ *
+ * SITE MARKUP REQUIRED (already on ShopSphere):
+ *   data-evg-product-image  = full product image URL (thumbnail)
+ *   data-evg-product-stock  = inventory count
+ *   data-evg-product-id, data-evg-product-name, data-evg-product-price, etc.
+ *
+ * imageUrl IS CAPTURED ON:
+ *   - View Item (product detail page)
+ *   - Add To Cart (global click listener)
+ * ============================================================================
  */
 Evergage.init({
   cookieDomain: window.location.hostname,
@@ -31,20 +54,146 @@ Evergage.init({
     return root ? root.getAttribute(name) || "" : "";
   }
 
-  function readProductFromElement(element) {
+  // Reads data-evg-product-image from DOM, falls back to <img> src
+  function getProductImageFromElement(element) {
+    if (!element) {
+      return "";
+    }
+
+    var image = element.getAttribute("data-evg-product-image");
+    if (image) {
+      return image;
+    }
+
+    var img = element.querySelector("img");
+    if (!img) {
+      return "";
+    }
+
+    return img.getAttribute("src") || img.currentSrc || img.src || "";
+  }
+
+  // Builds full Product catalog object including imageUrl predefined attribute
+  function buildProductCatalogFromElement(element, fallbackCategory) {
     if (!element) {
       return null;
     }
 
     var id = element.getAttribute("data-evg-product-id");
     var name = element.getAttribute("data-evg-product-name");
-    var price = Number(element.getAttribute("data-evg-product-price") || 0);
 
     if (!id || !name) {
       return null;
     }
 
-    return { id: id, name: name, price: price };
+    var slug = element.getAttribute("data-evg-product-slug") || "";
+    var price = Number(element.getAttribute("data-evg-product-price") || 0);
+    var brand = element.getAttribute("data-evg-product-brand") || "";
+    var stock = Number(element.getAttribute("data-evg-product-stock") || 0);
+    var category =
+      element.getAttribute("data-evg-product-category") ||
+      fallbackCategory ||
+      "";
+    var image = getProductImageFromElement(element);
+
+    var product = {
+      _id: id,
+      name: name,
+      price: price,
+    };
+
+    if (slug) {
+      product.url = window.location.origin + "/products/" + slug;
+    }
+
+    if (image) {
+      product.imageUrl = image;
+    }
+
+    if (stock > 0) {
+      product.inventoryCount = stock;
+    }
+
+    if (category) {
+      product.categories = [category];
+    }
+
+    var related = {};
+    if (brand) {
+      related.Brand = [brand];
+    }
+    if (category) {
+      related.Category = [category];
+    }
+    if (Object.keys(related).length > 0) {
+      product.relatedCatalogObjects = related;
+    }
+
+    return product;
+  }
+
+  function getProductIdsFromCards() {
+    var productIds = [];
+    document.querySelectorAll("[data-evg-product-card]").forEach(function (card) {
+      var id = card.getAttribute("data-evg-product-id");
+      if (id) {
+        productIds.push(id);
+      }
+    });
+    return productIds;
+  }
+
+  // Waits for PDP markup, then reads a product attribute (fixes empty catalog on SPA)
+  function getProductAttributeWhenReady(name) {
+    if (document.querySelector("[data-evg-product]")) {
+      return getProductAttribute(name);
+    }
+    return waitForProductDetailReady().then(function () {
+      return getProductAttribute(name);
+    });
+  }
+
+  function getProductImageWhenReady() {
+    if (document.querySelector("[data-evg-product]")) {
+      return getProductImageFromElement(getProductRoot());
+    }
+    return waitForProductDetailReady().then(function () {
+      return getProductImageFromElement(getProductRoot());
+    });
+  }
+
+  function getProductNumberWhenReady(name) {
+    var result = getProductAttributeWhenReady(name);
+    if (result && typeof result.then === "function") {
+      return result.then(function (value) {
+        return Number(value) || 0;
+      });
+    }
+    return Number(result) || 0;
+  }
+
+  function resolveProductAttribute(value) {
+    if (value && typeof value.then === "function") {
+      return value;
+    }
+    return value;
+  }
+
+  // Upserts full Product catalog (imageUrl, price, etc.) for visible listing cards
+  function syncVisibleProductsToCatalog(fallbackCategory) {
+    document.querySelectorAll("[data-evg-product-card]").forEach(function (card) {
+      var product = buildProductCatalogFromElement(card, fallbackCategory);
+      if (!product || !product.imageUrl) {
+        return;
+      }
+
+      Evergage.sendEvent({
+        action: "View Page",
+        catalog: {
+          Product: product,
+        },
+      });
+    });
   }
 
   function waitForElement(selector) {
@@ -55,9 +204,22 @@ Evergage.init({
     );
   }
 
+  function waitForProductDetailReady() {
+    return waitForElement("[data-evg-product]");
+  }
+
   var sitemapConfig = {
     global: {
       onActionEvent: function (actionEvent) {
+        if (actionEvent.action === "Viewed Category") {
+          if (document.querySelector("[data-evg-product-card]")) {
+            syncVisibleProductsToCatalog(getCategoryFromPage());
+          } else {
+            waitForElement("[data-evg-product-card]").then(function () {
+              syncVisibleProductsToCatalog(getCategoryFromPage());
+            });
+          }
+        }
         return actionEvent;
       },
       listeners: [
@@ -68,22 +230,23 @@ Evergage.init({
             var productElement =
               this.closest("[data-evg-product]") ||
               this.closest("[data-evg-product-card]");
-            var product = readProductFromElement(productElement);
+            // Sends imageUrl to Product catalog on Add To Cart
+            var product = buildProductCatalogFromElement(
+              productElement,
+              getCategoryFromPage()
+            );
 
             if (!product) {
               return;
             }
 
+            product.quantity = 1;
+
             Evergage.sendEvent({
               action: "Add To Cart",
               itemAction: Evergage.ItemAction.AddToCart,
               catalog: {
-                Product: {
-                  _id: product.id,
-                  name: product.name,
-                  price: product.price,
-                  quantity: 1,
-                },
+                Product: product,
               },
             });
           }
@@ -107,33 +270,81 @@ Evergage.init({
           if (document.querySelector("[data-evg-product]")) {
             return true;
           }
-          return waitForElement("[data-evg-product]");
+          return waitForProductDetailReady();
         },
         catalog: {
           Product: {
             _id: function () {
-              return getProductAttribute("data-evg-product-id") || false;
+              if (document.querySelector("[data-evg-product]")) {
+                return getProductAttribute("data-evg-product-id") || false;
+              }
+              return waitForProductDetailReady().then(function () {
+                return getProductAttribute("data-evg-product-id") || false;
+              });
             },
             name: function () {
-              return getProductAttribute("data-evg-product-name");
+              return resolveProductAttribute(
+                getProductAttributeWhenReady("data-evg-product-name")
+              );
             },
             price: function () {
-              return Number(getProductAttribute("data-evg-product-price")) || 0;
+              return getProductNumberWhenReady("data-evg-product-price");
             },
             url: function () {
+              var slugResult = getProductAttributeWhenReady("data-evg-product-slug");
+              if (slugResult && typeof slugResult.then === "function") {
+                return slugResult.then(function (slug) {
+                  if (slug) {
+                    return window.location.origin + "/products/" + slug;
+                  }
+                  return window.location.href;
+                });
+              }
+              if (slugResult) {
+                return window.location.origin + "/products/" + slugResult;
+              }
               return window.location.href;
             },
+            // Maps data-evg-product-image -> catalog.Product.imageUrl (predefined attribute)
             imageUrl: function () {
-              return getProductAttribute("data-evg-product-image");
+              return getProductImageWhenReady();
+            },
+            inventoryCount: function () {
+              return getProductNumberWhenReady("data-evg-product-stock");
+            },
+            categories: function () {
+              var categoryResult = getProductAttributeWhenReady(
+                "data-evg-product-category"
+              );
+              if (categoryResult && typeof categoryResult.then === "function") {
+                return categoryResult.then(function (category) {
+                  return category ? [category] : [];
+                });
+              }
+              return categoryResult ? [categoryResult] : [];
             },
             relatedCatalogObjects: {
               Brand: function () {
-                var brand = getProductAttribute("data-evg-product-brand");
-                return brand ? [brand] : [];
+                var brandResult = getProductAttributeWhenReady(
+                  "data-evg-product-brand"
+                );
+                if (brandResult && typeof brandResult.then === "function") {
+                  return brandResult.then(function (brand) {
+                    return brand ? [brand] : [];
+                  });
+                }
+                return brandResult ? [brandResult] : [];
               },
               Category: function () {
-                var category = getProductAttribute("data-evg-product-category");
-                return category ? [category] : [];
+                var categoryResult = getProductAttributeWhenReady(
+                  "data-evg-product-category"
+                );
+                if (categoryResult && typeof categoryResult.then === "function") {
+                  return categoryResult.then(function (category) {
+                    return category ? [category] : [];
+                  });
+                }
+                return categoryResult ? [categoryResult] : [];
               },
             },
           },
@@ -142,6 +353,7 @@ Evergage.init({
       {
         name: "category",
         action: "Viewed Category",
+        itemAction: Evergage.ItemAction.ViewCategory,
         isMatch: function () {
           if (getPathname() !== "/products") {
             return false;
@@ -155,6 +367,16 @@ Evergage.init({
           Category: {
             _id: function () {
               return getCategoryFromPage();
+            },
+            relatedCatalogObjects: {
+              Product: function () {
+                if (document.querySelector("[data-evg-product-card]")) {
+                  return getProductIdsFromCards();
+                }
+                return waitForElement("[data-evg-product-card]").then(function () {
+                  return getProductIdsFromCards();
+                });
+              },
             },
           },
         },
@@ -175,6 +397,7 @@ Evergage.init({
       {
         name: "cart",
         action: "View Cart",
+        itemAction: Evergage.ItemAction.ViewCart,
         isMatch: function () {
           if (getPathname() !== "/cart") {
             return false;
@@ -216,19 +439,28 @@ Evergage.init({
 
   Evergage.initSitemap(sitemapConfig);
 
-  // Next.js client-side navigation support
   var lastUrl = window.location.href;
+  var lastReinitUrl = "";
   var reinitTimer = null;
 
   function scheduleReinit() {
     if (reinitTimer) {
       window.clearTimeout(reinitTimer);
     }
+
     reinitTimer = window.setTimeout(function () {
+      var currentUrl = window.location.href;
+
+      if (currentUrl === lastReinitUrl) {
+        return;
+      }
+
+      lastReinitUrl = currentUrl;
+
       if (window.Evergage && window.Evergage.reinit) {
         window.Evergage.reinit();
       }
-    }, 500);
+    }, 1000);
   }
 
   function onRouteChange() {
