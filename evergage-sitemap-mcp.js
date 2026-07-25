@@ -21,6 +21,13 @@
  *   data-evg-product-image  = full product image URL (thumbnail)
  *   data-evg-product-stock  = inventory count
  *   data-evg-product-id, data-evg-product-name, data-evg-product-price, etc.
+ *   data-evg-page="home"    = homepage root (required for home_hero_banner)
+ *   <header id="header">    = site header (required for global_header_banner)
+ *   #home-hero-banner       = homepage hero zone target
+ *
+ * CONTENT ZONES (for MCP global templates):
+ *   global_header_banner -> header#header (all pages)
+ *   home_hero_banner     -> #home-hero-banner (home page only)
  *
  * imageUrl IS CAPTURED ON:
  *   - View Item (product detail page)
@@ -222,6 +229,12 @@ Evergage.init({
         }
         return actionEvent;
       },
+      contentZones: [
+        {
+          name: "global_header_banner",
+          selector: "header#header",
+        },
+      ],
       listeners: [
         Evergage.listener(
           "click",
@@ -433,6 +446,12 @@ Evergage.init({
           }
           return waitForElement("[data-evg-page='home']");
         },
+        contentZones: [
+          {
+            name: "home_hero_banner",
+            selector: "#home-hero-banner",
+          },
+        ],
       },
     ],
   };

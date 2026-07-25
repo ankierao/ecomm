@@ -42,8 +42,9 @@ export default function Navbar() {
   return (
     <>
       <header
+        id="header"
         className={cn(
-          "fixed top-0 left-0 right-0 z-40 transition-all duration-300",
+          "header fixed top-0 left-0 right-0 z-40 transition-all duration-300",
           isScrolled
             ? "bg-white/95 shadow-md backdrop-blur-md dark:bg-gray-950/95"
             : "bg-transparent"

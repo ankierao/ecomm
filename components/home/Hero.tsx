@@ -6,7 +6,10 @@ import { ArrowRight, Sparkles } from "lucide-react";
 
 export default function Hero() {
   return (
-    <section className="relative min-h-[90vh] overflow-hidden hero-gradient">
+    <section
+      id="home-hero-banner"
+      className="relative min-h-[90vh] overflow-hidden hero-gradient"
+    >
       {/* Background pattern */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute -right-40 -top-40 h-96 w-96 rounded-full bg-white/20 blur-3xl" />

@@ -103,6 +103,12 @@ export function createEvergageSitemapConfig(
 ): EvergageSitemapConfig {
   return {
     global: {
+      contentZones: [
+        {
+          name: "global_header_banner",
+          selector: "header#header",
+        },
+      ],
       listeners: [
         Evergage.listener(
           "click",
@@ -193,6 +199,12 @@ export function createEvergageSitemapConfig(
         name: "home",
         action: "View Page",
         isMatch: () => getPathname() === "/" || getPathname() === "",
+        contentZones: [
+          {
+            name: "home_hero_banner",
+            selector: "#home-hero-banner",
+          },
+        ],
       },
     ],
   };
