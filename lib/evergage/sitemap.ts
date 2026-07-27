@@ -204,6 +204,10 @@ export function createEvergageSitemapConfig(
             name: "home_hero_banner",
             selector: "#home-hero-banner",
           },
+          {
+            name: "home_sub_hero",
+            selector: "#home-sub-hero",
+          },
         ],
       },
     ],

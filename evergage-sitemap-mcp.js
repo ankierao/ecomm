@@ -24,10 +24,12 @@
  *   data-evg-page="home"    = homepage root (required for home_hero_banner)
  *   <header id="header">    = site header (required for global_header_banner)
  *   #home-hero-banner       = homepage hero zone target
+ *   #home-sub-hero          = homepage sub-hero zone target (Einstein recommendations)
  *
  * CONTENT ZONES (for MCP global templates):
  *   global_header_banner -> header#header (all pages)
  *   home_hero_banner     -> #home-hero-banner (home page only)
+ *   home_sub_hero        -> #home-sub-hero (home page only)
  *
  * imageUrl IS CAPTURED ON:
  *   - View Item (product detail page)
@@ -450,6 +452,10 @@ Evergage.init({
           {
             name: "home_hero_banner",
             selector: "#home-hero-banner",
+          },
+          {
+            name: "home_sub_hero",
+            selector: "#home-sub-hero",
           },
         ],
       },
