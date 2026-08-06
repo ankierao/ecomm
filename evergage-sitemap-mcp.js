@@ -24,16 +24,34 @@
  *   data-evg-page="home"    = homepage root (required for home_hero_banner)
  *   <header id="header">    = site header (required for global_header_banner)
  *   #home-hero-banner       = homepage hero zone target
- *   #home-sub-hero          = homepage sub-hero zone target (Einstein recommendations)
+ *   #login-email, #login-password = login modal fields (Login event on sign-in)
  *
  * CONTENT ZONES (for MCP global templates):
  *   global_header_banner -> header#header (all pages)
  *   home_hero_banner     -> #home-hero-banner (home page only)
  *   home_sub_hero        -> #home-sub-hero (home page only)
  *
+ * EXIT INTENT POPUP ZONES (center-screen overlay — use in Global Template):
+ *   Mount point: #evg-exit-intent-overlay (auto-created by sitemap if missing)
+ *   global_exit_intent   -> all pages (fallback / site-wide campaigns)
+ *   home_exit_intent     -> homepage only
+ *   pdp_exit_intent      -> product detail (/products/[slug])
+ *   category_exit_intent -> product listing (/products)
+ *   cart_exit_intent     -> cart page
+ *   wishlist_exit_intent -> wishlist page
+ *
+ * MCP GLOBAL TEMPLATE SETUP (Exit Intent):
+ *   1. Create Global Template with fixed overlay CSS (center modal, z-index 9999)
+ *   2. Map each content zone above to the template in Experience Builder
+ *   3. Add trigger rule: Exit Intent (mouse leaves viewport top on desktop)
+ *   4. Target by page type using the zone name matching that page (e.g. pdp_exit_intent on View Item)
+ *
  * imageUrl IS CAPTURED ON:
  *   - View Item (product detail page)
  *   - Add To Cart (global click listener)
+ *
+ * LOGIN EVENT IS CAPTURED ON:
+ *   - Login modal form submit (action: "Login", user.id + user.attributes)
  * ============================================================================
  */
 Evergage.init({
@@ -217,6 +235,66 @@ Evergage.init({
     return waitForElement("[data-evg-product]");
   }
 
+  // Creates a fixed center-screen mount for exit-intent popups (MCP global template)
+  var EXIT_INTENT_OVERLAY_ID = "evg-exit-intent-overlay";
+
+  function ensureExitIntentOverlay() {
+    if (document.getElementById(EXIT_INTENT_OVERLAY_ID)) {
+      return;
+    }
+
+    var overlay = document.createElement("div");
+    overlay.id = EXIT_INTENT_OVERLAY_ID;
+    overlay.setAttribute("data-evg-zone", "exit-intent");
+    overlay.setAttribute("aria-live", "polite");
+    overlay.style.cssText =
+      "position:fixed;inset:0;z-index:9999;pointer-events:none;" +
+      "display:flex;align-items:center;justify-content:center;";
+    document.body.appendChild(overlay);
+  }
+
+  var exitIntentZoneSelector = "#" + EXIT_INTENT_OVERLAY_ID;
+
+  ensureExitIntentOverlay();
+
+  // Sends Login action to MCP event stream after successful sign-in
+  function sendLoginEvent(email, firstName) {
+    if (!email) {
+      return;
+    }
+
+    Evergage.sendEvent({
+      action: "Login",
+      user: {
+        id: email,
+        attributes: {
+          emailAddress: email,
+          firstName: firstName || "",
+        },
+      },
+    });
+  }
+
+  function captureLoginFromForm(form) {
+    if (!form || !form.querySelector) {
+      return;
+    }
+
+    var emailInput = form.querySelector("#login-email");
+    var passwordInput = form.querySelector("#login-password");
+
+    if (!emailInput || !passwordInput) {
+      return;
+    }
+
+    var email = (emailInput.value || "").trim().toLowerCase();
+    var password = passwordInput.value || "";
+
+    if (email === "ankit@email.com" && password === "12345") {
+      sendLoginEvent(email, "Ankit");
+    }
+  }
+
   var sitemapConfig = {
     global: {
       onActionEvent: function (actionEvent) {
@@ -235,6 +313,10 @@ Evergage.init({
         {
           name: "global_header_banner",
           selector: "header#header",
+        },
+        {
+          name: "global_exit_intent",
+          selector: exitIntentZoneSelector,
         },
       ],
       listeners: [
@@ -266,6 +348,10 @@ Evergage.init({
             });
           }
         ),
+        Evergage.listener("submit", "form", function (event) {
+          var form = (event && event.target) || this;
+          captureLoginFromForm(form);
+        }),
       ],
     },
 
@@ -287,6 +373,12 @@ Evergage.init({
           }
           return waitForProductDetailReady();
         },
+        contentZones: [
+          {
+            name: "pdp_exit_intent",
+            selector: exitIntentZoneSelector,
+          },
+        ],
         catalog: {
           Product: {
             _id: function () {
@@ -378,6 +470,12 @@ Evergage.init({
           }
           return waitForElement("[data-evg-page='category']");
         },
+        contentZones: [
+          {
+            name: "category_exit_intent",
+            selector: exitIntentZoneSelector,
+          },
+        ],
         catalog: {
           Category: {
             _id: function () {
@@ -422,6 +520,12 @@ Evergage.init({
           }
           return waitForElement("[data-evg-page='cart']");
         },
+        contentZones: [
+          {
+            name: "cart_exit_intent",
+            selector: exitIntentZoneSelector,
+          },
+        ],
       },
       {
         name: "wishlist",
@@ -435,6 +539,12 @@ Evergage.init({
           }
           return waitForElement("[data-evg-page='wishlist']");
         },
+        contentZones: [
+          {
+            name: "wishlist_exit_intent",
+            selector: exitIntentZoneSelector,
+          },
+        ],
       },
       {
         name: "home",
@@ -454,8 +564,19 @@ Evergage.init({
             selector: "#home-hero-banner",
           },
           {
-            name: "home_sub_hero",
+            name: "suggestion_banner_01",
             selector: "#home-sub-hero",
+          },
+          {
+            name: "banner-bg-color",
+            selector: ".hero-gradient",
+          },
+         
+    { name: "Button name", selector: 'a[href="/products"].btn-primary' },
+
+          {
+            name: "home_exit_intent",
+            selector: exitIntentZoneSelector,
           },
         ],
       },
@@ -481,6 +602,8 @@ Evergage.init({
       }
 
       lastReinitUrl = currentUrl;
+
+      ensureExitIntentOverlay();
 
       if (window.Evergage && window.Evergage.reinit) {
         window.Evergage.reinit();

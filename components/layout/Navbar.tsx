@@ -17,6 +17,7 @@ import SearchBar from "@/components/ui/SearchBar";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/utils/helpers";
 
 const navLinks = [
@@ -32,6 +33,7 @@ export default function Navbar() {
   const { itemCount, openCart } = useCart();
   const { items: wishlistItems } = useWishlist();
   const { theme, toggleTheme } = useTheme();
+  const { user, openLogin, logout } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -125,12 +127,30 @@ export default function Navbar() {
                 )}
               </button>
 
-              <Link
-                href="#"
-                className="hidden rounded-full p-2.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 sm:block"
-              >
-                <User className="h-5 w-5" />
-              </Link>
+              {user ? (
+                <div className="hidden items-center gap-2 sm:flex">
+                  <div className="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 dark:bg-gray-800">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-medium">{user.name}</span>
+                  </div>
+                  <button
+                    onClick={logout}
+                    className="text-xs font-medium text-gray-500 transition-colors hover:text-brand-600 dark:text-gray-400 dark:hover:text-brand-400"
+                  >
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={openLogin}
+                  className="hidden items-center gap-1.5 rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 sm:flex"
+                >
+                  <User className="h-4 w-4" />
+                  Login
+                </button>
+              )}
 
               <button
                 onClick={() => setMobileOpen(!mobileOpen)}
@@ -180,6 +200,36 @@ export default function Navbar() {
                     {link.label}
                   </Link>
                 ))}
+                {user ? (
+                  <div className="mt-2 flex items-center justify-between rounded-xl bg-gray-100 px-4 py-3 dark:bg-gray-800">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-600 text-sm font-bold text-white">
+                        {user.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-sm font-medium">{user.name}</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setMobileOpen(false);
+                      }}
+                      className="text-xs font-medium text-gray-500 hover:text-brand-600"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      openLogin();
+                      setMobileOpen(false);
+                    }}
+                    className="mt-2 flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white"
+                  >
+                    <User className="h-4 w-4" />
+                    Login
+                  </button>
+                )}
               </nav>
             </motion.div>
           )}
