@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, LogIn, Mail, Lock, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,6 +11,24 @@ export default function LoginModal() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoginOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isLoginOpen]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -37,23 +56,32 @@ export default function LoginModal() {
     closeLogin();
   };
 
-  return (
+  if (!mounted) {
+    return null;
+  }
+
+  return createPortal(
     <AnimatePresence>
       {isLoginOpen && (
-        <>
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="login-title"
+        >
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleClose}
-            className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
           />
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed left-1/2 top-1/2 z-[60] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-950 sm:p-8"
+            className="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-950 sm:p-8"
           >
             <div className="mb-6 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -61,7 +89,9 @@ export default function LoginModal() {
                   <LogIn className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold">Welcome back</h2>
+                  <h2 id="login-title" className="text-xl font-bold">
+                    Welcome back
+                  </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     Sign in to your account
                   </p>
@@ -135,8 +165,9 @@ export default function LoginModal() {
               </button>
             </form>
           </motion.div>
-        </>
+        </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
