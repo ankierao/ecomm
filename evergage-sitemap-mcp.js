@@ -25,11 +25,16 @@
  *   <header id="header">    = site header (required for global_header_banner)
  *   #home-hero-banner       = homepage hero zone target
  *   #login-email, #login-password = login modal fields (Login event on sign-in)
+ *   .leading-tight / #home-hero-headline = hero headline (logged-in template zone)
+ *
+ * MCP USER ATTRIBUTE (create in Settings -> User Attributes):
+ *   isLoggedIn (Boolean) — set true on Login, false on Logout; attached on all events
  *
  * CONTENT ZONES (for MCP global templates):
  *   global_header_banner -> header#header (all pages)
  *   home_hero_banner     -> #home-hero-banner (home page only)
  *   home_sub_hero        -> #home-sub-hero (home page only)
+ *   logged_in_hero_headline -> #home-hero-headline (home hero headline — use for logged-in template)
  *
  * EXIT INTENT POPUP ZONES (center-screen overlay — use in Global Template):
  *   Mount point: #evg-exit-intent-overlay (auto-created by sitemap if missing)
@@ -52,6 +57,8 @@
  *
  * LOGIN EVENT IS CAPTURED ON:
  *   - Login modal form submit (action: "Login", user.id + user.attributes)
+ *   - user.attributes.isLoggedIn = true on login, false on logout
+ *   - onActionEvent attaches isLoggedIn on every event (incl. returning sessions)
  * ============================================================================
  */
 Evergage.init({
@@ -257,6 +264,50 @@ Evergage.init({
 
   ensureExitIntentOverlay();
 
+  var AUTH_STORAGE_KEY = "shopsphere-auth";
+
+  function getStoredAuthUser() {
+    try {
+      var stored = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (!stored) {
+        return null;
+      }
+      return JSON.parse(stored);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function isUserLoggedIn() {
+    var user = getStoredAuthUser();
+    return !!(user && user.email);
+  }
+
+  function applyUserAuthAttributes(actionEvent) {
+    var storedUser = getStoredAuthUser();
+    var loggedIn = !!(storedUser && storedUser.email);
+
+    actionEvent.user = actionEvent.user || {};
+    actionEvent.user.attributes = actionEvent.user.attributes || {};
+    actionEvent.user.attributes.isLoggedIn = loggedIn;
+
+    if (loggedIn) {
+      actionEvent.user.id = actionEvent.user.id || storedUser.email;
+      actionEvent.user.attributes.emailAddress =
+        actionEvent.user.attributes.emailAddress || storedUser.email;
+      actionEvent.user.attributes.firstName =
+        actionEvent.user.attributes.firstName || storedUser.name || "";
+    }
+
+    return actionEvent;
+  }
+
+  function refreshPersonalization() {
+    if (window.Evergage && window.Evergage.reinit) {
+      window.Evergage.reinit();
+    }
+  }
+
   // Sends Login action to MCP event stream after successful sign-in
   function sendLoginEvent(email, firstName) {
     if (!email) {
@@ -270,9 +321,25 @@ Evergage.init({
         attributes: {
           emailAddress: email,
           firstName: firstName || "",
+          isLoggedIn: true,
         },
       },
     });
+
+    refreshPersonalization();
+  }
+
+  function sendLogoutEvent() {
+    Evergage.sendEvent({
+      action: "Logout",
+      user: {
+        attributes: {
+          isLoggedIn: false,
+        },
+      },
+    });
+
+    refreshPersonalization();
   }
 
   function captureLoginFromForm(form) {
@@ -298,6 +365,8 @@ Evergage.init({
   var sitemapConfig = {
     global: {
       onActionEvent: function (actionEvent) {
+        actionEvent = applyUserAuthAttributes(actionEvent);
+
         if (actionEvent.action === "Viewed Category") {
           if (document.querySelector("[data-evg-product-card]")) {
             syncVisibleProductsToCatalog(getCategoryFromPage());
@@ -351,6 +420,11 @@ Evergage.init({
         Evergage.listener("submit", "form", function (event) {
           var form = (event && event.target) || this;
           captureLoginFromForm(form);
+        }),
+        Evergage.listener("click", "header#header button", function () {
+          if ((this.textContent || "").trim().toLowerCase() === "logout") {
+            sendLogoutEvent();
+          }
         }),
       ],
     },
@@ -571,8 +645,14 @@ Evergage.init({
             name: "banner-bg-color",
             selector: ".hero-gradient",
           },
-         
-    { name: "Button name", selector: 'a[href="/products"].btn-primary' },
+          {
+            name: "logged_in_hero_headline",
+            selector: "#home-hero-headline",
+          },
+          {
+            name: "Button name",
+            selector: 'a[href="/products"].btn-primary',
+          },
 
           {
             name: "home_exit_intent",

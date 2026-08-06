@@ -27,7 +27,10 @@ export default function Hero() {
               <Sparkles className="h-4 w-4 text-accent-light" />
               Summer Collection 2026 — Up to 50% Off
             </div>
-            <h1 className="mb-6 font-display text-5xl font-bold leading-tight text-white md:text-6xl lg:text-7xl">
+            <h1
+              id="home-hero-headline"
+              className="mb-6 font-display text-5xl font-bold leading-tight text-white md:text-6xl lg:text-7xl"
+            >
               Discover Your
               <br />
               <span className="text-accent-light">Perfect Style</span>
