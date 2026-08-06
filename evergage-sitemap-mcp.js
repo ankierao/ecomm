@@ -24,6 +24,7 @@
  *   data-evg-page="home"    = homepage root (required for home_hero_banner)
  *   <header id="header">    = site header (required for global_header_banner)
  *   #home-hero-banner       = homepage hero zone target
+ *   #login-email, #login-password = login modal fields (Login event on sign-in)
  *
  * CONTENT ZONES (for MCP global templates):
  *   global_header_banner -> header#header (all pages)
@@ -47,6 +48,9 @@
  * imageUrl IS CAPTURED ON:
  *   - View Item (product detail page)
  *   - Add To Cart (global click listener)
+ *
+ * LOGIN EVENT IS CAPTURED ON:
+ *   - Login modal form submit (action: "Login", user.id + user.attributes)
  * ============================================================================
  */
 Evergage.init({
@@ -252,6 +256,44 @@ Evergage.init({
 
   ensureExitIntentOverlay();
 
+  // Sends Login action to MCP event stream after successful sign-in
+  function sendLoginEvent(email, firstName) {
+    if (!email) {
+      return;
+    }
+
+    Evergage.sendEvent({
+      action: "Login",
+      user: {
+        id: email,
+        attributes: {
+          emailAddress: email,
+          firstName: firstName || "",
+        },
+      },
+    });
+  }
+
+  function captureLoginFromForm(form) {
+    if (!form || !form.querySelector) {
+      return;
+    }
+
+    var emailInput = form.querySelector("#login-email");
+    var passwordInput = form.querySelector("#login-password");
+
+    if (!emailInput || !passwordInput) {
+      return;
+    }
+
+    var email = (emailInput.value || "").trim().toLowerCase();
+    var password = passwordInput.value || "";
+
+    if (email === "ankit@email.com" && password === "12345") {
+      sendLoginEvent(email, "Ankit");
+    }
+  }
+
   var sitemapConfig = {
     global: {
       onActionEvent: function (actionEvent) {
@@ -305,6 +347,10 @@ Evergage.init({
             });
           }
         ),
+        Evergage.listener("submit", "form", function (event) {
+          var form = (event && event.target) || this;
+          captureLoginFromForm(form);
+        }),
       ],
     },
 
